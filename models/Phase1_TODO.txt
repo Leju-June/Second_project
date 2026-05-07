@@ -1,0 +1,46 @@
+# Phase 1: 핵심 인공지능 구현 (MLP 모델 개발) - 단계별 가이드
+
+이 단계에서는 사용자가 브라우저에서 그린 숫자를 인식할 수 있도록 
+가장 기본이 되는 인공지능 모델(MLP)을 설계하고 학습시킵니다. 
+향후 FastAPI에 연결하기 위해 모델을 `.h5` 파일로 추출하는 것이 최종 목표입니다.
+
+## 단계 1: 개발 환경 세팅
+1. Python 환경에서 필요한 라이브러리 설치
+   - 추천 명령어: `pip install tensorflow numpy matplotlib`
+2. Jupyter Notebook 또는 Python 스크립트(.py) 파일 생성 (예: `train_model.ipynb` 또는 `train.py`)
+
+## 단계 2: 데이터셋 로드 및 전처리
+1. TensorFlow/Keras를 활용하여 MNIST 데이터셋 불러오기
+   - `keras.datasets.mnist.load_data()`
+2. 데이터 스케일링 (정규화)
+   - 이미지 픽셀 값(0~255)을 0~1 사이로 나누기 (`x_train / 255.0`)
+3. 레이블 원-핫 인코딩 (One-Hot Encoding)
+   - 0~9의 숫자를 카테고리화 (Loss function으로 Categorical Cross-Entropy를 사용하기 위함)
+   - `keras.utils.to_categorical()`
+
+## 단계 3: MLP 모델 아키텍처 구성
+프로젝트 초안에서 정의한 대로 딥러닝 모델을 설계합니다.
+- 입력층(Flatten): 28x28 이미지를 1차원(784)으로 펴주기
+- 은닉층 1(Dense): 512 노드, 활성화 함수 'relu'
+- 은닉층 2(Dense): 256 노드, 활성화 함수 'relu'
+- 드롭아웃(Dropout): 0.2 (Overfitting 방지)
+- 출력층(Dense): 10 노드 (0~9 분류), 활성화 함수 'softmax'
+
+## 단계 4: 모델 컴파일 (Compile)
+- Optimizer: 'adam' (learning rate=0.001)
+- Loss Function: 'categorical_crossentropy'
+- Metrics: ['accuracy']
+
+## 단계 5: 모델 학습 (Training) 및 평가 (Evaluation)
+- `model.fit()` 함수를 사용해 학습 진행
+  - batch_size: 64
+  - epochs: 16
+  - validation_split: 0.2 (학습 데이터 중 20%를 검증용으로 사용)
+- `model.evaluate()` 함수로 테스트 데이터셋 성능 확인
+
+## 단계 6: 모델 저장 및 모델 체크
+- 학습이 완료된 모델을 `mlp_model_v1.h5` 파일로 저장
+- `model.save('mlp_model_v1.h5')`
+- 저장된 모델이 잘 로드되는지 확인 `keras.models.load_model('mlp_model_v1.h5')`
+
+모든 단계의 코드가 작성되고 학습된 `.h5` 파일이 만들어지면 Phase 1이 완료됩니다!
