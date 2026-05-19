@@ -1,0 +1,45 @@
+# Phase 2: 전처리 파이프라인 및 백엔드 구축 (FastAPI) 가이드
+
+Phase 2에서는 사용자가 그린 숫자 이미지를 서버로 전송받아 전처리하고, 학습된 모델을 통해 어떤 숫자인지 예측(추론)하여 결과를 반환하는 백엔드 API 서버를 구축합니다.
+
+## 기술 스택
+- Backend Framework: FastAPI
+- Server: Uvicorn
+- Image Processing: OpenCV (cv2), NumPy
+- Machine Learning: TensorFlow/Keras
+
+## 단계별 수행 목표 및 해야 할 일
+
+### 1. FastAPI 기본 서버 세팅 및 구동
+- `requirements.txt` 작성: `fastapi`, `uvicorn`, `tensorflow`, `opencv-python-headless`, `numpy`, `python-multipart` 등 필요한 라이브러리 명시.
+- `main.py` 파일 생성 및 기본적인 FastAPI 앱 초기화.
+- 간단한 Health Check API (`GET /`)를 만들어 서버가 정상적으로 구동되는지 확인.
+- CORS (Cross-Origin Resource Sharing) 설정: 프론트엔드(HTML/JS)에서 API를 호출할 수 있도록 허용.
+
+### 2. 전처리 파이프라인 함수 구현
+사용자가 그린 이미지는 웹에서 Base64 문자열 형태로 전달됩니다. 이 이미지를 모델이 학습한 MNIST 데이터와 같은 형태(28x28 크기, 1차원 배열, 픽셀값 0~1 정규화)로 변환해야 합니다.
+
+- `preprocessing.py` (또는 `utils.py`) 생성
+- Base64 이미지를 디코딩하여 OpenCV 이미지 배열(NumPy)로 변환하는 함수 작성.
+- 흑백 이미지로 변환(Grayscale) 후, Threshold 처리를 통해 노이즈 제거.
+- **Bounding Box 추출**: `cv2.findContours`를 사용하여 그려진 숫자의 외곽선을 찾고, 숫자가 존재하는 영역만 Crop(자르기).
+- **여백 추가 및 중앙 정렬**: 잘라낸 이미지가 정사각형 비율을 유지하도록 패딩(Padding)을 추가하고, 중앙에 위치하도록 조정.
+- **리사이징**: MNIST와 동일한 28x28 크기로 `cv2.resize` 적용.
+- **정규화 및 차원 변경**: 픽셀 값을 0~1 사이로 스케일링하고 (x / 255.0), 모델 입력 형태에 맞게 1차원 배열(784,)로 Flatten.
+
+### 3. 서버 시작 시 모델 로드 (Lifespan / Startup Event)
+모델 추론은 매 요청마다 모델을 새로 불러오면 너무 오래 걸립니다. 서버가 켜질 때 모델을 한 번만 메모리에 로드해두어야 합니다.
+- FastAPI의 `@app.on_event("startup")` 또는 `lifespan` 컨텍스트 매니저를 사용하여, 이전에 Phase 1에서 저장한 `mlp_model_v1.h5` 파일을 로드.
+- 글로벌 변수나 앱 상태(`app.state`)에 모델 객체를 저장하여 다른 API 엔드포인트에서 접근 가능하도록 설정.
+
+### 4. 예측 API (`POST /predict`) 구현
+프론트엔드에서 이미지를 전송하면 예측 결과를 반환하는 핵심 엔드포인트를 만듭니다.
+- Pydantic 모델을 사용해 요청 데이터 스키마(예: Base64 문자열 필드) 정의.
+- 전처리 함수를 호출하여 이미지를 변환하고, 로드된 모델을 통해 `model.predict()` 수행.
+- Softmax 결과 배열 중 최댓값(가장 확률이 높은 숫자)과 그 인덱스 추출.
+- **예외 처리 (신뢰도 검사)**: 최댓값이 0.6(60%) 미만일 경우 "숫자를 추측하기 어렵습니다. 다시 그려주세요."와 같은 메시지와 함께 예외 응답 반환.
+- 정상적인 경우 예측된 숫자와 확률을 JSON 형태로 프론트엔드에 응답.
+
+## 참고 및 주의사항
+- OpenCV (`cv2`) 설치 시 백엔드 컨테이너 환경에서는 `opencv-python` 대신 GUI 종속성이 없는 `opencv-python-headless`를 사용하는 것을 권장합니다.
+- 모델 경로 지정 시 절대경로 혹은 올바른 상대경로를 지정하여 파일 찾기 에러(FileNotFoundError)가 발생하지 않도록 주의하세요.
